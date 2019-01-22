@@ -26,7 +26,7 @@ instance ToCapture (Capture "first" T.Text) where
     toCapture _ = DocCapture "first" "The first name of the user."
 
 instance ToSample Foo.Data.Post where
-    toSamples _ = samples $ Post <$> [1, 4, 7, 194] <*> [4, 7, 92] <*> ["This is the post body", "This is another post body"]
+    toSamples _ = samples $ Post `fmap` [1, 4, 7, 194] <*> [4, 7, 92] <*> ["This is the post body", "This is another post body"]
 
 instance ToSample User where
     toSamples _ = samples [
@@ -39,7 +39,7 @@ instance ToCapture (Capture "second" T.Text) where
     toCapture _ = DocCapture "second" "The second name of the user."
 
 instance ToSample (TokenizedResponse [Foo.Data.Post]) where
-    toSamples _ = samples $ TokenizedResponse <$> [1, 46, 193, 7] <*> [map snd $ toSamples (Proxy :: Proxy Foo.Data.Post)]
+    toSamples _ = samples $ TokenizedResponse `fmap` [1, 46, 193, 7] <*> [map snd $ toSamples (Proxy :: Proxy Foo.Data.Post)]
 
 instance ToCapture (Capture "id" Int) where
     toCapture _ = DocCapture "id" "The id of the entity you want to query."

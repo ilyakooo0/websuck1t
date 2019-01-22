@@ -85,7 +85,7 @@ createConfig :: IO Config
 createConfig = do 
     mng <- newManager tlsManagerSettings
     cfg <- atomically $ Config <$> newTVar 0 <*> newTVar 0 <*> newTVar M.empty <*> newTVar M.empty <*> return mng <*> newTVar M.empty <*> newTVar 0 <*> newTVar (CB.empty 20)
-    forkIO . forever $ threadDelay 2000000 >> (runHandler . createApp cfg $ startAddingPosts 20 cfg >>= uncurry sendUpdate)
+    forkIO . forever $ threadDelay 7000000 >> (runHandler . createApp cfg $ startAddingPosts 20 cfg >>= uncurry sendUpdate)
     return cfg
 
 type Token = Int
