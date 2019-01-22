@@ -124,6 +124,8 @@ Retrieves a user with the given `id`.
 
 ## WebSocket /posts/subscribe/:token
 
+You access the web socket with the web socket protocol. I. e. `https://` -> `ws://`.
+
 Open a web socket from the given `token` for receiving events about new and deleted posts.
 
 #### Returns error `498` if the supplied token has expired or is invalid.
