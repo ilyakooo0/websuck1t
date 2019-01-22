@@ -20,7 +20,7 @@ _url: [`https://websuck1t.herokuapp.com`](https://websuck1t.herokuapp.com)_
 ```javascript
 {
     "token": 1,
-    "reponse": [
+    "response": [
         {
             "postBody": "This is the post body",
             "postAuthor": 4,
@@ -138,7 +138,7 @@ Open a web socket from the given `token` for receiving events about new and dele
 ```javascript
 {
     "token": 1828,
-    "reponse": {
+    "response": {
         "deleted": [
             1819,
             1835,
