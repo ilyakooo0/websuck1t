@@ -36,6 +36,7 @@ dependencies:
 - servant-websockets
 - websockets
 - lens
+- wai-cors
 
 library:
   source-dirs: src

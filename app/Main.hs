@@ -4,6 +4,7 @@ import Network.Wai.Handler.Warp (run)
 import Servant.Server (serve)
 import System.Environment
 import Lib
+import Network.Wai.Middleware.Cors
 
 main :: IO ()
 main = do 
@@ -12,4 +13,4 @@ main = do
     putStrLn $ "Starting on port: " ++ show port
     print env
     srv <- createServer
-    run port $ serve server srv
+    run port $ simpleCors $ serve server srv
