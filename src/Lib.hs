@@ -38,7 +38,10 @@ type API =   "users" :> Capture "id" UserId :> Get '[JSON] User
 createServer :: IO (Server API)
 createServer = do
     cfg <- createConfig
-    atomically $ newUser cfg "Kostya" "Designer"
+    atomically $ newUser cfg "Kostya" "Designerovich"
+    atomically $ newUser cfg "Anna" "Androidovna"
+    atomically $ newUser cfg "Darya" "Aiphonovna"
+    atomically $ newUser cfg "Ilya" "Serverovich"
     return $ hoistServer server (createApp cfg) serverAPI
 
 server :: Proxy API
