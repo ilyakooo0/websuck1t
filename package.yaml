@@ -49,7 +49,7 @@ executables:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - foo
+    - websuck1t
   docs-exe:
     main:                Docs.hs
     source-dirs:         docs
@@ -58,7 +58,7 @@ executables:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - foo
+    - websuck1t
   swagger-exe:
     main:                Swagger.hs
     source-dirs:         swagger
@@ -67,7 +67,7 @@ executables:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - foo
+    - websuck1t
 
 tests:
   foo-test:
@@ -78,4 +78,4 @@ tests:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - foo
+    - websuck1t
