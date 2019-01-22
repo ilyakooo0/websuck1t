@@ -7,7 +7,9 @@ import Lib
 
 main :: IO ()
 main = do 
-    env <- getEnvironment
-    let port = maybe 2000 read $ lookup "PORT" env
+    env <- lookupEnv "PORT"
+    let port = maybe 2000 read env :: Int
+    putStrLn $ "Starting on port: " ++ show port
+    print env
     srv <- createServer
     run port $ serve server srv
