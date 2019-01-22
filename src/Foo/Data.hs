@@ -92,7 +92,7 @@ type Token = Int
 
 data TokenizedResponse d = TokenizedResponse {
     token :: Token,
-    reponse :: d
+    response :: d
 } deriving Generic
 
 instance ToJSON d => ToJSON (TokenizedResponse d)
