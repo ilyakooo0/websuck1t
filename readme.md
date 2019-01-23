@@ -58,10 +58,11 @@ Use this _url_ to get the token every time when application begins and previous 
     ]
 }
 ```
-### Captures:
-- «token» to further use it in subscription to web socket
 
-- «response» to start with the given number of posts in table
+### Response fields
+
+- "token" to further use it in subscription to web socket
+- "response" to start with the given number of posts in table
 
 ## WebSocket /posts/subscribe/:token
 
@@ -79,14 +80,14 @@ Open a web socket from the given `token` for receiving events about new and dele
 
 ```javascript
 {
-    «token»: 1828,
-    «response»: {
-        «deleted»: [
+    "token": 1828,
+    "response": {
+        "deleted": [
             1819,
             1835,
             1843
         ],
-        «added»: [
+        "added": [
             1844,
             1845,
             1846
@@ -118,9 +119,9 @@ _url: [`https://websuck1t.herokuapp.com/posts/{id}`](https://websuck1t.herokuapp
 
 ```javascript
 {
-    «postBody»: «This is the post body»,
-    «postAuthor»: 4,
-    «postId»: 1
+    "postBody": "This is the post body",
+    "postAuthor": 4,
+    "postId": 1
 }
 ```
 
@@ -128,9 +129,9 @@ _url: [`https://websuck1t.herokuapp.com/posts/{id}`](https://websuck1t.herokuapp
 
 ```javascript
 {
-    «postBody»: «This is another post body»,
-    «postAuthor»: 4,
-    «postId»: 1
+    "postBody": "This is another post body",
+    "postAuthor": 4,
+    "postId": 1
 }
 ```
 
@@ -138,9 +139,9 @@ _url: [`https://websuck1t.herokuapp.com/posts/{id}`](https://websuck1t.herokuapp
 
 ```javascript
 {
-    «postBody»: «This is the post body»,
-    «postAuthor»: 7,
-    «postId»: 1
+    "postBody": "This is the post body",
+    "postAuthor": 7,
+    "postId": 1
 }
 ```
 
@@ -148,9 +149,9 @@ _url: [`https://websuck1t.herokuapp.com/posts/{id}`](https://websuck1t.herokuapp
 
 ```javascript
 {
-    «postBody»: «This is another post body»,
-    «postAuthor»: 7,
-    «postId»: 1
+    "postBody": "This is another post body",
+    "postAuthor": 7,
+    "postId": 1
 }
 ```
 
@@ -158,9 +159,9 @@ _url: [`https://websuck1t.herokuapp.com/posts/{id}`](https://websuck1t.herokuapp
 
 ```javascript
 {
-    «postBody»: «This is the post body»,
-    «postAuthor»: 92,
-    «postId»: 1
+    "postBody": "This is the post body",
+    "postAuthor": 92,
+    "postId": 1
 }
 ```
 
