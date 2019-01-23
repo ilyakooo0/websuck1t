@@ -165,7 +165,7 @@ startAddingPosts lim cfg = do
     let us = users cfg
     let ps = posts cfg
 
-    a <- liftIO $ loremBacon (manager cfg) (Just AllMeat) (Just lim) (Just False)
+    a <- liftIO $ loremBacon (manager cfg) (Just AllMeat) (Just lim) (Just 0)
     g <- liftIO newStdGen
     let rns = randoms g
     

@@ -42,6 +42,7 @@ createServer = do
     atomically $ newUser cfg "Anna" "Androidovna"
     atomically $ newUser cfg "Darya" "Aiphonovna"
     atomically $ newUser cfg "Ilya" "Serverovich"
+    atomically $ newUser cfg "Константин" "Дудосерович"
     return $ hoistServer server (createApp cfg) serverAPI
 
 server :: Proxy API
