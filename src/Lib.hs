@@ -33,7 +33,7 @@ type API =   "users" :> Capture "id" UserId :> Get '[JSON] User
         :<|> "users" :> "add" :> Capture "first" Text :> Capture "second" Text :> Get '[JSON] [User]
         :<|> "users" :> "all" :> Get '[JSON] [User]
         :<|> "posts" :> Capture "id" PostId :> Get '[JSON] D.Post
-        :<|> "posts" :> "all" :> Get '[JSON] (TokenizedResponse [D.Post])
+        :<|> "posts" :> "all" :> Get '[JSON] (TokenizedResponse Update)
         :<|> "posts" :> "subscribe" :> Capture "token" Int :> WebSocketPending
         
 createServer :: P.Connection -> IO (Server API)
@@ -64,11 +64,11 @@ createUserPath first second = do
     liftIO $ newUser cfg first second 
     allUsers
 
-returnPosts :: App (TokenizedResponse [D.Post])
+returnPosts :: App (TokenizedResponse Update)
 returnPosts = do 
     posts <- allPosts 
     t <- getToken 
-    liftIO $ atomically $ TokenizedResponse <$> t <*> pure posts
+    liftIO $ atomically $ TokenizedResponse <$> t <*> (pure $ flip Update (S.empty) $ S.fromList $ Prelude.map D.postId posts)
 
 invalidTokenError :: RejectRequest
 invalidTokenError = defaultRejectRequest {

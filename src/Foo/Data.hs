@@ -23,6 +23,7 @@ module Foo.Data
         UserId,
         PostId,
         Post(..),
+        postId,
         allPosts,
         addConnection,
         removeConnection,
