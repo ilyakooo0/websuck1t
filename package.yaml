@@ -37,6 +37,10 @@ dependencies:
 - websockets
 - lens
 - wai-cors
+- beam-core
+- beam-postgres
+- postgresql-simple
+- random-shuffle
 
 library:
   source-dirs: src

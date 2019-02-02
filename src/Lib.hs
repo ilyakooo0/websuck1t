@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Lib
     ( server,
@@ -26,7 +27,7 @@ import Data.Aeson
 import qualified Data.Set as S
 import Data.CyclicBuffer
 import Data.Foldable (fold)
-
+import qualified Database.Beam.Postgres as P
 
 type API =   "users" :> Capture "id" UserId :> Get '[JSON] User
         :<|> "users" :> "add" :> Capture "first" Text :> Capture "second" Text :> Get '[JSON] [User]
@@ -35,14 +36,14 @@ type API =   "users" :> Capture "id" UserId :> Get '[JSON] User
         :<|> "posts" :> "all" :> Get '[JSON] (TokenizedResponse [D.Post])
         :<|> "posts" :> "subscribe" :> Capture "token" Int :> WebSocketPending
         
-createServer :: IO (Server API)
-createServer = do
-    cfg <- createConfig
-    atomically $ newUser cfg "Kostya" "Designerovich"
-    atomically $ newUser cfg "Anna" "Androidovna"
-    atomically $ newUser cfg "Darya" "Aiphonovna"
-    atomically $ newUser cfg "Ilya" "Serverovich"
-    atomically $ newUser cfg "Константин" "Дудосерович"
+createServer :: P.Connection -> IO (Server API)
+createServer pConn = do
+    cfg <- createConfig pConn
+    -- newUser cfg "Kostya" "Designerovich"
+    -- newUser cfg "Anna" "Androidovna"
+    -- newUser cfg "Darya" "Aiphonovna"
+    -- newUser cfg "Ilya" "Serverovich"
+    -- newUser cfg "Константин" "Дудосерович"
     return $ hoistServer server (createApp cfg) serverAPI
 
 server :: Proxy API
@@ -60,14 +61,14 @@ serverAPI =
 createUserPath :: Text -> Text -> App [User]
 createUserPath first second = do 
     cfg <- ask
-    liftIO . atomically $ newUser cfg first second 
+    liftIO $ newUser cfg first second 
     allUsers
 
 returnPosts :: App (TokenizedResponse [D.Post])
 returnPosts = do 
     posts <- allPosts 
     t <- getToken 
-    liftIO $ atomically $ TokenizedResponse <$> t <*> posts
+    liftIO $ atomically $ TokenizedResponse <$> t <*> pure posts
 
 invalidTokenError :: RejectRequest
 invalidTokenError = defaultRejectRequest {
