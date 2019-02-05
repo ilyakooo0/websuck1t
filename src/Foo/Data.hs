@@ -1,5 +1,12 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+
 
 module Foo.Data 
     (
@@ -9,7 +16,6 @@ module Foo.Data
         createApp,
         createConfig,
         User(..),
-        UserName(..),
         Config,
         updates,
         allUsers,
@@ -17,12 +23,16 @@ module Foo.Data
         UserId,
         PostId,
         Post(..),
+        postId,
         allPosts,
         addConnection,
         removeConnection,
         TokenizedResponse(..),
         Update(..),
-        getToken
+        getToken,
+        Token,
+        subscribeWithToken,
+        postUpdates
     ) where
     
 import GHC.Conc
@@ -50,6 +60,14 @@ import qualified Data.CyclicBuffer as CB
 import Data.Set ((\\), union)
 import Data.Monoid
 import Debug.Trace
+import Database.Beam
+import qualified Database.Beam.Postgres as P
+import Database.Beam.Query
+import Database.PostgreSQL.Simple (withTransaction)
+import Database.Beam.Backend.SQL.BeamExtensions
+import System.Random.Shuffle
+import Network.SocketIO
+import Network.EngineIO (SocketId)
 
 type App = ReaderT Config Handler 
 
@@ -57,35 +75,35 @@ class HasConfig c where
     getCfg :: c -> Config
 
 allUsers :: App [User]
-allUsers = ask >>= liftIO . fmap M.elems . readTVarIO . users
+allUsers = asks dbConn >>= \conn -> liftIO . P.runBeamPostgres conn . runSelectReturningList . select . all_ . users $ socialDb
 
 post :: PostId -> App Post
 post pId = do
-    cfg <- ask 
-    u <- liftIO . atomically . fmap (M.lookup pId) . readTVar . posts $ cfg
+    conn <- asks dbConn
+    u <- liftIO . P.runBeamPostgres conn . runSelectReturningOne . flip lookup_ (PostId pId) . posts $ socialDb
     case u of
         Just u -> return u
         Nothing -> throwError err404
 
 user :: UserId -> App User
 user uId = do
-    cfg <- ask 
-    u <- liftIO . atomically . fmap (M.lookup uId) . readTVar . users $ cfg
+    conn <- asks dbConn
+    u <- liftIO . P.runBeamPostgres conn . runSelectReturningOne . flip lookup_ (UserId uId) . users $ socialDb
     case u of
         Just u -> return u
         Nothing -> throwError err404
 
-allPosts :: App (STM [Post])
-allPosts = asks $ fmap M.elems . readTVar . posts
+allPosts :: App [Post]
+allPosts = asks dbConn >>= \conn -> liftIO . P.runBeamPostgres conn . runSelectReturningList . select . all_ . posts $ socialDb
 
 getToken :: App (STM Token)
 getToken = asks $ fmap CB.lastToken . readTVar . updates
 
-createConfig :: IO Config
-createConfig = do 
+createConfig :: P.Connection -> IO Config
+createConfig conn = do 
     mng <- newManager tlsManagerSettings
-    cfg <- atomically $ Config <$> newTVar 0 <*> newTVar 0 <*> newTVar M.empty <*> newTVar M.empty <*> return mng <*> newTVar M.empty <*> newTVar 0 <*> newTVar (CB.empty 20)
-    forkIO . forever $ threadDelay 7000000 >> (runHandler . createApp cfg $ startAddingPosts 20 cfg >>= uncurry sendUpdate)
+    cfg <- atomically $ Config <$> return conn <*> return mng <*> newTVar M.empty <*> newTVar 0 <*> newTVar (CB.empty 20)
+    forkIO . forever $ threadDelay 7000000 >> (runHandler . createApp cfg $ startAddingPosts 25 cfg >>= uncurry sendUpdate)
     return cfg
 
 type Token = Int
@@ -116,18 +134,32 @@ instance Semigroup Update where
 instance Monoid Update where
     mempty = Update S.empty S.empty
 
-addConnection :: HasConfig c => c -> Connection -> STM ConnectionId
+addConnection :: HasConfig c => c -> Socket -> STM SocketId
 addConnection c conn = do
     let cfg = getCfg c
-    lastID <- fmap (+1) . readTVar . lastConnection $ cfg
-    flip writeTVar lastID . lastConnection $ cfg
-    modifyTVar (connections cfg) $ M.insert lastID conn
-    return lastID
+    let sId = socketId conn
+    -- lastID <- fmap (+1) . readTVar . lastConnection $ cfg
+    -- flip writeTVar lastID . lastConnection $ cfg
+    modifyTVar (connections cfg) $ M.insert sId conn
+    return sId
         
-removeConnection :: HasConfig c => c -> ConnectionId -> STM ()
-removeConnection c cId = do
+removeConnection :: HasConfig c => c -> Socket -> STM ()
+removeConnection c conn = do
     let cfg = getCfg c
-    modifyTVar (connections cfg) $ M.delete cId 
+    let sId = socketId conn
+    modifyTVar (connections cfg) $ M.delete sId 
+
+
+-- subscribe :: MonadIO m => Config -> Socket -> m ()
+-- subscribe cfg conn = do
+--     cId <- liftSTM $ addConnection cfg conn
+--     -- liftIO $ flip finally (atomically $ removeConnection cfg cId) $ forever $ do 
+--         -- _ <- receiveDataMessage conn
+--         -- return ()
+--     return ()
+
+-- unsubscribe :: MonadIO m => Config -> Socket -> m ()
+-- unsubscribe cfg conn = liftIO . atomically $ removeConnection cfg cId
 
 
 
@@ -139,12 +171,9 @@ type PostId = Int
 type ConnectionId = Int
 
 data Config = Config {
-    lastUserID :: TVar UserId,
-    lastPostID :: TVar PostId,
-    users :: TVar (M.Map Int User),
-    posts :: TVar (M.Map Int Post),
+    dbConn :: P.Connection,
     manager :: Manager,
-    connections :: TVar (M.Map ConnectionId Connection),
+    connections :: TVar (M.Map SocketId Socket),
     lastConnection :: TVar ConnectionId,
     updates :: TVar (CB.CyclicBuffer Update)
 }
@@ -152,94 +181,149 @@ data Config = Config {
 instance HasConfig Config where
     getCfg = id
 
--- startAddingUsers :: Config -> App ()
--- startAddingUsers cfg = do 
---     a <- liftIO $ loremBacon (manager cfg) (Just AllMeat) (Just 2) (Just False)
---     let t = fromMaybe ["None", "None"] a
---     liftIO . atomically $ newUser cfg (t !! 0) (t !! 1) 
---     return ()
-
 startAddingPosts :: Int -> Config -> App (Token, Update)
 startAddingPosts lim cfg = do 
     cfg <- ask
-    let us = users cfg
-    let ps = posts cfg
+    let conn = dbConn cfg
+    -- let us = users socialDb
+    -- let ps = posts socialDb
 
     a <- liftIO $ loremBacon (manager cfg) (Just AllMeat) (Just lim) (Just 0)
     g <- liftIO newStdGen
     let rns = randoms g
-    
+   
     let t = fromMaybe (repeat "None") a
-    liftIO . atomically $ do
-        uu <- readTVar us
-        let uSize = M.size uu
-        if uSize >= 1 then do
-                pp <- readTVar ps
-                let toDeleteIndex = head rns `mod` M.size pp
-                let deletedKey = fst $ M.elemAt toDeleteIndex pp
-                dd <- if M.size pp > 0 then writeTVar ps (M.deleteAt toDeleteIndex pp) >> return [deletedKey]
-                    else return []
-                let toAdd = max 0 $ lim - (M.size pp - 1)
-                add <- fmap (map postId) $ forM (zip rns $ take toAdd t) $ \(rnd, t) -> newPost cfg (randomFrom rnd uu) t
-                let upd =  Update (S.fromList add) (S.fromList dd)
-                let uppT = updates cfg
-                upp <- readTVar uppT
-                let (token, upp') = CB.insert upp upd
-                writeTVar uppT upp'
-                return (token, upd)
-            else return (0, mempty)
+
+    let deleteCount = 3
+    
+    (deletedIds, addedIds) <- join . liftIO . withTransaction conn . return $ do
+        userIds <- liftIO . P.runBeamPostgres conn . runSelectReturningList . select $ do
+            uc <- all_ . users $ socialDb
+            pure (userId uc)
+
+        if length userIds <= 0 then return ([],[])
+        else do
+            postIds <- liftIO . P.runBeamPostgres conn . runSelectReturningList . select $ do 
+                uc <- all_ . posts $ socialDb
+                pure (postId uc)
+            
+
+            let postCount = length postIds
+            let toDeleteIndecies = take deleteCount $ shuffle' postIds postCount g
+
+            let toAdd = max 0 $ lim - length postIds + length toDeleteIndecies
+
+            -- Just deletedPost <- liftIO . P.runBeamPostgres conn . runSelectReturningOne . select . limit_ 1 . offset_ (fromIntegral $ toDeleteIndex - 1)  . all_ . posts $ socialDb
+            -- let deletedId = postId deletedPost
+                
+            unless (length toDeleteIndecies <= 0) $
+                liftIO . P.runBeamPostgres conn . runDelete $ 
+                delete (posts socialDb) ((`in_` map val_ toDeleteIndecies) . postId)
+            
+            nIds <- liftIO . P.runBeamPostgres conn . runInsertReturningList (posts socialDb) $ insertExpressions $ take toAdd . flip map (zip rns t) $ \(r, t) -> Post default_ (val_ (userIds %! r)) (val_ t)
+
+            return (toDeleteIndecies, map postId nIds)
+
+    liftIO . atomically $ do 
+        let upd =  Update (S.fromList addedIds) (S.fromList deletedIds)
+        let uppT = updates cfg
+        upp <- readTVar uppT
+        let (token, upp') = CB.insert upp upd
+        writeTVar uppT upp'
+        return (token, upd)
     
 sendUpdate :: Token -> Update -> App ()
 sendUpdate t u = do
     cfg <- ask
     conns <- fmap M.elems . liftIO . readTVarIO $ connections cfg
-    liftIO $ forM conns $ flip sendTextData $ encode $ TokenizedResponse t u
+    forM conns $ \ conn -> emitTo conn postUpdates $ TokenizedResponse t u
+    -- liftIO $ forM conns $ flip sendTextData $ encode $ TokenizedResponse t u
     return ()
+
+modIndex :: [a] -> Int -> a
+modIndex aa i = aa !! (i `mod` length aa)
+
+infixl 5 %!
+(%!) = modIndex
+
 
 randomFrom :: Int -> M.Map k v -> k
 randomFrom g as = M.keys as !! (abs g `mod` M.size as)  
 
-newUser :: Config -> Text -> Text -> STM User
+newUser :: Config -> Text -> Text -> IO [User]
 newUser cfg first second = do
-    let lastID = lastUserID cfg
-    let us = users cfg
-    do
-        id <- readTVar lastID
-        writeTVar lastID (id+1)
-        let user = User (UserName first second) id 
-        oldUsers <- readTVar us
-        writeTVar us $ M.insert id user oldUsers
-        return user
+    let conn = dbConn cfg
+    P.runBeamPostgres conn . runInsertReturningList (users socialDb) $ insertExpressions  [User default_ (val_ first) (val_ second)]
 
-newPost :: Config -> UserId -> Text -> STM Post
-newPost cfg user body = do
-    let lastId = lastPostID cfg 
-    let ps = posts cfg
-    do
-        id <- readTVar lastId
-        writeTVar lastId (id+1)
-        let p = Post id user body 
-        modifyTVar ps $ M.insert id p
-        return p
 
-data User = User {
-    userName :: UserName,
-    userId :: UserId
+-- newPost :: Config -> UserId -> Text -> STM Post
+-- newPost cfg user body = do
+--     let lastId = lastPostID cfg 
+--     let ps = posts cfg
+--     do
+--         id <- readTVar lastId
+--         writeTVar lastId (id+1)
+--         let p = Post id user body 
+--         modifyTVar ps $ M.insert id p
+--         return p
+
+data UserT f = User {
+    userId :: Columnar f UserId,
+    firstName :: Columnar f Text,
+    secondName :: Columnar f Text
 } deriving Generic
 
-data Post = Post {
-    postId :: PostId,
-    postAuthor :: UserId,
-    postBody :: Text
+instance Beamable UserT
+
+type User = UserT Identity
+
+instance Table UserT where
+    data PrimaryKey UserT f = UserId (Columnar f UserId) 
+        deriving Generic
+
+    primaryKey = UserId . userId
+
+instance Beamable (PrimaryKey UserT)
+
+data PostT f = Post {
+    postId :: Columnar f PostId,
+    postAuthor :: Columnar f UserId,
+    postBody :: Columnar f Text
 } deriving Generic
+
+instance Beamable PostT
+
+type Post = PostT Identity
 
 instance ToJSON User 
 instance ToJSON Post
 
-data UserName = UserName {
-    firstName :: Text,
-    secondName :: Text
-} deriving (Generic)
+instance Table PostT where
+    data PrimaryKey PostT f = PostId (Columnar f PostId) 
+        deriving Generic
 
-instance ToJSON UserName
+    primaryKey = PostId . postId
 
+instance Beamable (PrimaryKey PostT)
+
+data SocialDb f = SocialDb {
+    users :: f (TableEntity UserT),
+    posts :: f (TableEntity PostT)
+} deriving Generic
+
+instance Database be SocialDb
+
+socialDb :: DatabaseSettings be SocialDb
+socialDb = defaultDbSettings `withDbModification` 
+    dbModification {
+        users = modifyTable id $ tableModification {
+            firstName = "firstname",
+            secondName = "secondname"
+        }
+    }
+
+subscribeWithToken :: Text
+subscribeWithToken = "subscribeWithToken"
+postUpdates :: Text
+postUpdates = "postUpdates"
+    
