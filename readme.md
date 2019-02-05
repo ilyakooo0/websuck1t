@@ -43,6 +43,8 @@ Use this _url_ to get the token every time when application begins and previous 
 
 ## socket.io /posts/subscribe/
 
+_NOTE: subscribe to the `"postUpdates"` event before submitting the token to `"subscribeWithToken"`._
+
 You access the web socket with the socket io protocol. You will most likely need to install a library.
 
 ### Connecting
