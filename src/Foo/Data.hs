@@ -63,7 +63,7 @@ import Debug.Trace
 import Database.Beam
 import qualified Database.Beam.Postgres as P
 import Database.Beam.Query
-import Database.PostgreSQL.Simple (withTransaction)
+import Database.PostgreSQL.Simple (withSavepoint)
 import Database.Beam.Backend.SQL.BeamExtensions
 import System.Random.Shuffle
 import Network.SocketIO
@@ -196,7 +196,7 @@ startAddingPosts lim cfg = do
 
     let deleteCount = 3
     
-    (deletedIds, addedIds) <- join . liftIO . withTransaction conn . return $ do
+    (deletedIds, addedIds) <- join . liftIO . withSavepoint conn . return $ do
         userIds <- liftIO . P.runBeamPostgres conn . runSelectReturningList . select $ do
             uc <- all_ . users $ socialDb
             pure (userId uc)
