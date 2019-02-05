@@ -23,40 +23,17 @@ Use this _url_ to get the token every time when application begins and previous 
 
 ```javascript
 {
-    "token": 1,
-    "response": [
-        {
-            "postBody": "This is the post body",
-            "postAuthor": 4,
-            "postId": 1
-        },
-        {
-            "postBody": "This is another post body",
-            "postAuthor": 4,
-            "postId": 2
-        },
-        {
-            "postBody": "This is the post body",
-            "postAuthor": 7,
-            "postId": 3
-        },
-        {
-            "postBody": "This is another post body",
-            "postAuthor": 7,
-            "postId": 4
-        },
-        {
-            "postBody": "This is the post body",
-            "postAuthor": 92,
-            "postId": 5
-        },
-        {
-            "postBody": "This is another post body",
-            "postAuthor": 92,
-            "postId": 6
-        }
-    ]
+    "token": 1828,
+    "response": {
+        "deleted": [],
+        "added": [
+            1844,
+            1845,
+            1846
+        ]
+    }
 }
+
 ```
 
 ### Response fields
@@ -64,19 +41,21 @@ Use this _url_ to get the token every time when application begins and previous 
 - "token" to further use it in subscription to web socket
 - "response" to start with the given number of posts in table
 
-## WebSocket /posts/subscribe/:token
+## socket.io /posts/subscribe/
 
-You access the web socket with the web socket protocol. I. e. `https://` -> `ws://`.
+You access the web socket with the socket io protocol. You will most likely need to install a library.
 
-Open a web socket from the given `token` for receiving events about new and deleted posts with `ws://websuck1t.herokuapp.com/posts/subscribe/{token}`
+### Connecting
 
-#### Returns error `498` if the supplied token has expired or is invalid.
+To start recieving events you send a `"subscribeWithToken"` event with a single `Int` as the messages body. The `Int` should be the last _token_ you recieved from any API.
 
-### Captures:
+#### Response
 
-- *token*: The token, received with the previous request.
+After sending the request, _you_ will receive a `"subscribeWithToken"` event with a single `Bool` in the message of the event. The `Bool` indicates whether you have supplied a valid token. If the response is `true`, you are now subscribed to recieve updates. If thge response was `false`, nothing happens, you will not be sent any updates.
 
-### Response:
+### Receiving updates
+
+Updates will be sent to you on the `"postUpdates"` event. The event message will contain the following JSON Object (same as `/posts/all`):
 
 ```javascript
 {
@@ -191,10 +170,8 @@ Retrieves a user with the given `id`.
 
 ```javascript
 {
-    "userName": {
-        "secondName": "Leonidovich",
-        "firstName": "Seva"
-    },
+    "secondName": "Leonidovich",
+    "firstName": "Seva",
     "userId": 1
 }
 ```
@@ -203,10 +180,8 @@ Retrieves a user with the given `id`.
 
 ```javascript
 {
-    "userName": {
-        "secondName": "Barovich",
-        "firstName": "Foo"
-    },
+    "secondName": "Barovich",
+    "firstName": "Foo",
     "userId": 42
 }
 ```
@@ -215,10 +190,8 @@ Retrieves a user with the given `id`.
 
 ```javascript
 {
-    "userName": {
-        "secondName": "Fooovich",
-        "firstName": "Bar"
-    },
+    "secondName": "Fooovich",
+    "firstName": "Bar",
     "userId": 69
 }
 ```
@@ -227,10 +200,8 @@ Retrieves a user with the given `id`.
 
 ```javascript
 {
-    "userName": {
-        "secondName": "Quixovich",
-        "firstName": "Qux"
-    },
+    "secondName": "Quixovich",
+    "firstName": "Qux",
     "userId": 8
 }
 ```
