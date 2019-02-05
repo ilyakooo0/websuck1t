@@ -41,6 +41,9 @@ dependencies:
 - beam-postgres
 - postgresql-simple
 - random-shuffle
+- socket-io
+- engine-io
+- engine-io-wai
 
 library:
   source-dirs: src

@@ -29,7 +29,10 @@ module Foo.Data
         removeConnection,
         TokenizedResponse(..),
         Update(..),
-        getToken
+        getToken,
+        Token,
+        subscribeWithToken,
+        postUpdates
     ) where
     
 import GHC.Conc
@@ -63,6 +66,8 @@ import Database.Beam.Query
 import Database.PostgreSQL.Simple (withTransaction)
 import Database.Beam.Backend.SQL.BeamExtensions
 import System.Random.Shuffle
+import Network.SocketIO
+import Network.EngineIO (SocketId)
 
 type App = ReaderT Config Handler 
 
@@ -129,18 +134,32 @@ instance Semigroup Update where
 instance Monoid Update where
     mempty = Update S.empty S.empty
 
-addConnection :: HasConfig c => c -> Connection -> STM ConnectionId
+addConnection :: HasConfig c => c -> Socket -> STM SocketId
 addConnection c conn = do
     let cfg = getCfg c
-    lastID <- fmap (+1) . readTVar . lastConnection $ cfg
-    flip writeTVar lastID . lastConnection $ cfg
-    modifyTVar (connections cfg) $ M.insert lastID conn
-    return lastID
+    let sId = socketId conn
+    -- lastID <- fmap (+1) . readTVar . lastConnection $ cfg
+    -- flip writeTVar lastID . lastConnection $ cfg
+    modifyTVar (connections cfg) $ M.insert sId conn
+    return sId
         
-removeConnection :: HasConfig c => c -> ConnectionId -> STM ()
-removeConnection c cId = do
+removeConnection :: HasConfig c => c -> Socket -> STM ()
+removeConnection c conn = do
     let cfg = getCfg c
-    modifyTVar (connections cfg) $ M.delete cId 
+    let sId = socketId conn
+    modifyTVar (connections cfg) $ M.delete sId 
+
+
+-- subscribe :: MonadIO m => Config -> Socket -> m ()
+-- subscribe cfg conn = do
+--     cId <- liftSTM $ addConnection cfg conn
+--     -- liftIO $ flip finally (atomically $ removeConnection cfg cId) $ forever $ do 
+--         -- _ <- receiveDataMessage conn
+--         -- return ()
+--     return ()
+
+-- unsubscribe :: MonadIO m => Config -> Socket -> m ()
+-- unsubscribe cfg conn = liftIO . atomically $ removeConnection cfg cId
 
 
 
@@ -154,7 +173,7 @@ type ConnectionId = Int
 data Config = Config {
     dbConn :: P.Connection,
     manager :: Manager,
-    connections :: TVar (M.Map ConnectionId Connection),
+    connections :: TVar (M.Map SocketId Socket),
     lastConnection :: TVar ConnectionId,
     updates :: TVar (CB.CyclicBuffer Update)
 }
@@ -217,7 +236,8 @@ sendUpdate :: Token -> Update -> App ()
 sendUpdate t u = do
     cfg <- ask
     conns <- fmap M.elems . liftIO . readTVarIO $ connections cfg
-    liftIO $ forM conns $ flip sendTextData $ encode $ TokenizedResponse t u
+    forM conns $ \ conn -> emitTo conn postUpdates $ TokenizedResponse t u
+    -- liftIO $ forM conns $ flip sendTextData $ encode $ TokenizedResponse t u
     return ()
 
 modIndex :: [a] -> Int -> a
@@ -301,3 +321,9 @@ socialDb = defaultDbSettings `withDbModification`
             secondName = "secondname"
         }
     }
+
+subscribeWithToken :: Text
+subscribeWithToken = "subscribeWithToken"
+postUpdates :: Text
+postUpdates = "postUpdates"
+    
