@@ -209,7 +209,7 @@ startAddingPosts lim cfg = do
             
 
             let postCount = length postIds
-            let toDeleteIndecies = take deleteCount $ shuffle' postIds postCount g
+            let toDeleteIndecies = if postCount == 0 then [] else take deleteCount $ shuffle' postIds postCount g
 
             let toAdd = max 0 $ lim - length postIds + length toDeleteIndecies
 
