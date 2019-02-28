@@ -19,6 +19,6 @@ import Data.Aeson
 import qualified Data.ByteString.Lazy as BS
 
 instance ToSchema User
--- instance ToSchema UserName
+instance ToSchema UserName
 
 main = return () -- BS.writeFile "swag.txt" . encode . toSwagger $ server

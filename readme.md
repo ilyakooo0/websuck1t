@@ -6,9 +6,64 @@ _url: [`https://websuck1t.herokuapp.com`](https://websuck1t.herokuapp.com)_
 
 ## GET /posts/all
 
-_start with: [`https://websuck1t.herokuapp.com/posts/all`](https://websuck1t.herokuapp.com/posts/all)_
+### Response:
 
-Use this _url_ to get the token every time when application begins and previous session was closed
+- Status code 200
+- Headers: []
+
+- Supported content types are:
+
+    - `application/json`
+
+- Example (`application/json`):
+
+```javascript
+{
+    "token": 1,
+    "response": [
+        {
+            "postBody": "This is the post body",
+            "postAuthor": 4,
+            "postId": 1
+        },
+        {
+            "postBody": "This is another post body",
+            "postAuthor": 4,
+            "postId": 2
+        },
+        {
+            "postBody": "This is the post body",
+            "postAuthor": 7,
+            "postId": 3
+        },
+        {
+            "postBody": "This is another post body",
+            "postAuthor": 7,
+            "postId": 4
+        },
+        {
+            "postBody": "This is the post body",
+            "postAuthor": 92,
+            "postId": 5
+        },
+        {
+            "postBody": "This is another post body",
+            "postAuthor": 92,
+            "postId": 6
+        }
+    ]
+}
+```
+
+## GET /users/:id
+
+Retrieves a user with the given `id`.
+
+#### If there is no user with the given `id`, the method returns error `404`.
+
+### Captures:
+
+- *id*: The id of the entity you want to query.
 
 ### Response:
 
@@ -23,41 +78,64 @@ Use this _url_ to get the token every time when application begins and previous 
 
 ```javascript
 {
-    "token": 1828,
-    "response": {
-        "deleted": [],
-        "added": [
-            1844,
-            1845,
-            1846
-        ]
-    }
+    "userName": {
+        "secondName": "Leonidovich",
+        "firstName": "Seva"
+    },
+    "userId": 1
 }
-
 ```
 
-### Response fields
+- Example (`application/json`):
 
-- "token" to further use it in subscription to web socket
-- "response" to start with the given number of posts in table
+```javascript
+{
+    "userName": {
+        "secondName": "Barovich",
+        "firstName": "Foo"
+    },
+    "userId": 42
+}
+```
 
-## socket.io /posts/subscribe/
+- Example (`application/json`):
 
-_NOTE: subscribe to the `"postUpdates"` event before submitting the token to `"subscribeWithToken"`._
+```javascript
+{
+    "userName": {
+        "secondName": "Fooovich",
+        "firstName": "Bar"
+    },
+    "userId": 69
+}
+```
 
-You access the web socket with the socket io protocol. You will most likely need to install a library.
+- Example (`application/json`):
 
-### Connecting
+```javascript
+{
+    "userName": {
+        "secondName": "Quixovich",
+        "firstName": "Qux"
+    },
+    "userId": 8
+}
+```
 
-To start recieving events you send a `"subscribeWithToken"` event with a single `Int` as the messages body. The `Int` should be the last _token_ you recieved from any API.
+## WebSocket /posts/subscribe/:token
 
-#### Response
+You access the web socket with the web socket protocol. I. e. `https://` -> `ws://`.
 
-After sending the request, _you_ will receive a `"subscribeWithToken"` event with a single `Bool` in the message of the event. The `Bool` indicates whether you have supplied a valid token. If the response is `true`, you are now subscribed to recieve updates. If thge response was `false`, nothing happens, you will not be sent any updates.
+Open a web socket from the given `token` for receiving events about new and deleted posts.
 
-### Receiving updates
+#### Returns error `498` if the supplied token has expired or is invalid.
 
-Updates will be sent to you on the `"postUpdates"` event. The event message will contain the following JSON Object (same as `/posts/all`):
+
+### Captures:
+
+- *token*: The token, received with the previous request.
+
+### Response:
 
 ```javascript
 {
@@ -78,8 +156,6 @@ Updates will be sent to you on the `"postUpdates"` event. The event message will
 ```
 
 ## GET /posts/:id
-
-_url: [`https://websuck1t.herokuapp.com/posts/{id}`](https://websuck1t.herokuapp.com/posts/1)_
 
 #### If there is no post with the given `id`, the method returns error `404`.
 
@@ -143,67 +219,5 @@ _url: [`https://websuck1t.herokuapp.com/posts/{id}`](https://websuck1t.herokuapp
     "postBody": "This is the post body",
     "postAuthor": 92,
     "postId": 1
-}
-```
-
-
-## GET /users/:id
-
-_url: [`https://websuck1t.herokuapp.com/users/{id}`](https://websuck1t.herokuapp.com/users/1)_
-
-Retrieves a user with the given `id`.
-
-#### If there is no user with the given `id`, the method returns error `404`.
-
-### Captures:
-
-- *id*: The id of the entity you want to query.
-
-### Response:
-
-- Status code 200
-- Headers: []
-
-- Supported content types are:
-
-    - `application/json`
-
-- Example (`application/json`):
-
-```javascript
-{
-    "secondName": "Leonidovich",
-    "firstName": "Seva",
-    "userId": 1
-}
-```
-
-- Example (`application/json`):
-
-```javascript
-{
-    "secondName": "Barovich",
-    "firstName": "Foo",
-    "userId": 42
-}
-```
-
-- Example (`application/json`):
-
-```javascript
-{
-    "secondName": "Fooovich",
-    "firstName": "Bar",
-    "userId": 69
-}
-```
-
-- Example (`application/json`):
-
-```javascript
-{
-    "secondName": "Quixovich",
-    "firstName": "Qux",
-    "userId": 8
 }
 ```
